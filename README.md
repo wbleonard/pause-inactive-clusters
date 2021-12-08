@@ -13,10 +13,10 @@ Therefore, this script could get a false positive that a cluster is inactive whe
 
 The implementation uses a [Scheduled Trigger](https://docs.mongodb.com/realm/triggers/scheduled-triggers/). The trigger calls a series of [Realm Functions](https://docs.mongodb.com/realm/functions/), which uses the [Atlas Administration APIs](https://docs.atlas.mongodb.com/reference/api-resources/) to  iterate over the organization’s projects and their associated clusters, testing the cluster inactivity (as explained in the introduction) and finally pausing the cluster if it is indeed inactive.
 
-![architecture](images/flow.png "image_tooltip")
+![Architecture](images/flow.png "Architecture")
 
 ## API Keys
-In order to call the Atlas Adminsitrative APIs, you'll first need an API Key with the [Organization Owner](https://docs.atlas.mongodb.com/reference/user-roles/#mongodb-authrole-Organization-Owner) role. API Keys are created in the Access Manager, which you'll find in the Organizaiton menu on the left:
+In order to call the Atlas Administrative APIs, you'll first need an API Key with the [Organization Owner](https://docs.atlas.mongodb.com/reference/user-roles/#mongodb-authrole-Organization-Owner) role. API Keys are created in the Access Manager, which you'll find in the Organization menu on the left:
 
 ![Access Manager](images/access-manager.png "Access Manager")
 
@@ -32,14 +32,7 @@ As an extra layer of security, you also have the option to set an IP Access List
 
 ![Create API Key](images/create-api-key2.png "Create API Key")
 ## Deployment
-You can simply import the Realm application and adjust any of the functions to fit your needs...
-
-
-
-## Build it Yourself
-To understand what's included in the application, here are the steps to build it yourself from scratch. 
-
-### Step 1: Create a Realm Application
+### Create a Realm Application
 [Realm](https://www.mongodb.com/realm/appdev) provides a powerful application development backend as a service. To begin using it, just click the Realm tab.
 
 ![Realm](images/realm.png "Realm")
@@ -54,7 +47,69 @@ I've named the application **Atlas Cluster Automation**:
 
 ![Welcome to MongoDB Realm](images/realm-welcome2.png "Welcome to MongoDB Realm")
 
-### Step 2: Store the API Key
+From here, you have the option to simply import the Realm application and adjust any of the functions to fit your needs. If you prefer to build the application from scratch, skip to the next section. 
+
+
+
+## Import Option
+
+### Step 1: Store the API Secret Key.
+The extract has a dependency on the API Secret Key, thus the import will fail if it is not configured beforehand.
+
+Use the `Values` menu on the left to Create a Secret named `AtlasPrivateKeySecret` containing your private key (the secret is not in quotes): 
+
+![Secret Value](images/value-secret.png "Secret Value")
+
+
+### Step 1: Install the Realm CLI
+
+Realm CLI is available on npm. To install version 2 of the Realm CLI on your system, ensure that you have [Node.js](https://nodejs.org/en/download/) installed and then run the following command in your shell:
+
+```npm install -g mongodb-realm-cli```
+
+### Step 2: Extract the Application Archive
+Download and extract the [AtlasClusterAutomation.zip](/export/AtlasClsuterAutomation.zip).
+
+### Step 3: Log into Atlas
+To configure your app with realm-cli, you must log in to Atlas using your API keys:
+
+`realm-cli login --api-key="<Public API Key>" -private-api-key="<Private API Key>"`
+
+```zsh
+✗ realm-cli login --api-key="<Public API Key>" --private-api-key="<Private API Key>"
+Successfully logged in
+```
+
+### Step 4: Get the Realm Application ID
+Select the `App Setting` menu and copy your Application ID:
+
+![Application ID](images/application-id.png "Application ID")
+
+### Step 5: Import the Application
+Run the following `realm-cli push` command from the directory where you extracted the export:
+
+```zsh
+realm-cli push --remote="<Your App ID>"
+
+...
+A summary of changes
+...
+
+? Please confirm the changes shown above Yes
+Creating draft
+Pushing changes
+Deploying draft
+Deployment complete
+Successfully pushed app up:
+```
+After the import, replace the `AtlasPublicKey' with your API public key value.
+
+![Public Key Value](images/value-public-key.png "Public Key Value")
+
+## Build it Yourself Option
+To understand what's included in the application, here are the steps to build it yourself from scratch. 
+
+### Step 1: Store the API Keys
 
 The functions we need to create will call the [Atlas APIs](https://docs.atlas.mongodb.com/api/), so we need to store our API Public and Private Keys, which we will do using [Values & Secrets](https://docs.mongodb.com/realm/values-and-secrets/). The sample code I provide references these values as `AtlasPublicKey` and `AtlasPrivateKey`, so use those same names unless you want to change the code where they’re referenced.
 
@@ -73,7 +128,11 @@ Create a Secret containing your private key (the secret is not in quotes):
 The Secret cannot be accessed directly, so create a second Value that links to the secret:  
 
 ![Private Key Value](images/value-private-key.png "Private Key Value")
-### Step 3: Create the Functions
+
+![Review Draft & Deploy](images/review-draft.png "Review Draft & Deploy")
+
+
+### Step 2: Create the Functions
 
 The four functions that need to be created are pretty self-explanatory, so I’m not going to provide a bunch of additional explanations here. 
 #### getProjects
@@ -373,13 +432,13 @@ exports = async function() {
 };
 ```
 
-### Step 4: Create the Schedule Trigger
+### Step 3: Create the Schedule Trigger
 
 Yes, we’re still using a [scheduled trigger](https://docs.mongodb.com/realm/triggers/scheduled-triggers/), but this time the trigger will run periodically to check for cluster inactivity. Now, your developers working late into the night will no longer have the cluster paused underneath them. 
 
 ![trigger](images/trigger.png "image_tooltip")
 
-### Step 5: Deploy
+### Step 4: Deploy
 
 As a final step you need to deploy the Realm application. 
 
