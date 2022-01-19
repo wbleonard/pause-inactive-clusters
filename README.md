@@ -3,7 +3,7 @@
 
 A couple of years ago I wrote an [article](https://www.mongodb.com/blog/post/atlas-cluster-automation-using-scheduled-triggers) on how to pause and/or scale clusters using scheduled triggers. It’s worth familiarizing yourself with those concepts because it will not repeat them here. Rather, I’m adding a wrinkle that will pause clusters across an entire organization based on inactivity. Specifically, I’m looking at the [Database Access History](https://docs.atlas.mongodb.com/access-tracking/) to determine activity.
 
-It is important to note this logging limitation: \
+It is important to note this logging limitation: 
 
 _If a cluster experiences an activity spike and generates an extremely large quantity of log messages, Atlas may stop collecting and storing new logs for a period of time._
 
@@ -11,41 +11,47 @@ Therefore, this script could get a false positive that a cluster is inactive whe
 
 ## Architecture
 
-The implementation uses a [Scheduled Trigger](https://docs.mongodb.com/realm/triggers/scheduled-triggers/). The trigger calls a series of [Realm Functions](https://docs.mongodb.com/realm/functions/), which uses the [Atlas Administration APIs](https://docs.atlas.mongodb.com/reference/api-resources/) to  iterate over the organization’s projects and their associated clusters, testing the cluster inactivity (as explained in the introduction) and finally pausing the cluster if it is indeed inactive.
+The implementation uses a [Scheduled Trigger](https://docs.mongodb.com/realm/triggers/scheduled-triggers/). The trigger calls a series of [Realm Functions](https://docs.mongodb.com/realm/functions/), which use the [Atlas Administration APIs](https://docs.atlas.mongodb.com/reference/api-resources/) to  iterate over the organization’s projects and their associated clusters, testing the cluster inactivity (as explained in the introduction) and finally pausing the cluster if it is indeed inactive.
 
-![Architecture](images/flow.png "Architecture")
+![Architecture](https://raw.githubusercontent.com/wbleonard/pause-inactive-clusters/main/images/flow.png "Architecture")
 
 ## API Keys
 In order to call the Atlas Administrative APIs, you'll first need an API Key with the [Organization Owner](https://docs.atlas.mongodb.com/reference/user-roles/#mongodb-authrole-Organization-Owner) role. API Keys are created in the Access Manager, which you'll find in the Organization menu on the left:
 
-![Access Manager](images/access-manager.png "Access Manager")
+![Access Manager](https://raw.githubusercontent.com/wbleonard/pause-inactive-clusters/main/images/access-manager.png "Access Manager")
 
-![Organization Access Manager](images/access-manager2.png "Organization Access Manager")
+![Organization Access Manager](https://raw.githubusercontent.com/wbleonard/pause-inactive-clusters/main/images/access-manager2.png "Organization Access Manager")
 
 Click **Create API Key**. Give the key a description and be sure to set the permissions to **Organization Owner**:
 
-![Create API Key](images/create-api-key.png "Create API Key")
+![Create API Key](https://raw.githubusercontent.com/wbleonard/pause-inactive-clusters/main/images/create-api-key.png "Create API Key")
 
-When you click **Next** you'll be presented with your Public and Private keys. **Save your private key as Atlas will never show it to you again**. 
+When you click **Next**, you'll be presented with your Public and Private keys. **Save your private key as Atlas will never show it to you again**. 
 
 As an extra layer of security, you also have the option to set an IP Access List for these keys. I'm skipping this step, so my key will work from anywhere.
 
-![Create API Key](images/create-api-key2.png "Create API Key")
+![Create API Key](https://raw.githubusercontent.com/wbleonard/pause-inactive-clusters/main/images/create-api-key2.png "Create API Key")
 ## Deployment
+
+### Create a Project for Automation
+Since this solution works across your entire Atlas organization, I like to host it in its own dedicated Atlas Project. 
+
+![Create Project](https://raw.githubusercontent.com/wbleonard/pause-inactive-clusters/main/images/create-project.png "Create Project")
+
 ### Create a Realm Application
 [Realm](https://www.mongodb.com/realm/appdev) provides a powerful application development backend as a service. To begin using it, just click the Realm tab.
 
-![Realm](images/realm.png "Realm")
+![Realm](https://raw.githubusercontent.com/wbleonard/pause-inactive-clusters/main/images/realm.png "Realm")
 
  You'll see that Realm offers a bunch of templates to get you started. For this use case, just select the first option to   **Build your own App**:
 
-![Welcome to MongoDB Realm](images/realm-welcome.png "Welcome to MongoDB Realm")
+![Welcome to MongoDB Realm](https://raw.githubusercontent.com/wbleonard/pause-inactive-clusters/main/images/realm-welcome.png "Welcome to MongoDB Realm")
 
-You'll then be presented with options to link a data source, name your application and choose a deployment model. The current iteration of this utility doesn't use a data source, so you can ignore that step (Realm with create a free cluster for you). You can also leave the [deployment model](https://docs.mongodb.com/realm/manage-apps/deploy/deployment-models-and-regions/) at its default (global), unless you want to limit the application to a specific region. 
+You'll then be presented with options to link a data source, name your application and choose a deployment model. The current iteration of this utility doesn't use a data source, so you can ignore that step (Realm will create a free cluster for you). You can also leave the [deployment model](https://docs.mongodb.com/realm/manage-apps/deploy/deployment-models-and-regions/) at its default (global), unless you want to limit the application to a specific region. 
 
 I've named the application **Atlas Cluster Automation**: 
 
-![Welcome to MongoDB Realm](images/realm-welcome2.png "Welcome to MongoDB Realm")
+![Welcome to MongoDB Realm](https://raw.githubusercontent.com/wbleonard/pause-inactive-clusters/main/images/realm-welcome2.png "Welcome to MongoDB Realm")
 
 From here, you have the option to simply import the Realm application and adjust any of the functions to fit your needs. If you prefer to build the application from scratch, skip to the next section. 
 
@@ -58,7 +64,7 @@ The extract has a dependency on the API Secret Key, thus the import will fail if
 
 Use the `Values` menu on the left to Create a Secret named `AtlasPrivateKeySecret` containing your private key (the secret is not in quotes): 
 
-![Secret Value](images/value-secret.png "Secret Value")
+![Secret Value](https://raw.githubusercontent.com/wbleonard/pause-inactive-clusters/main/images/value-secret.png "Secret Value")
 
 
 ### Step 1: Install the Realm CLI
@@ -68,12 +74,10 @@ Realm CLI is available on npm. To install version 2 of the Realm CLI on your sys
 ```npm install -g mongodb-realm-cli```
 
 ### Step 2: Extract the Application Archive
-Download and extract the [AtlasClusterAutomation.zip](/export/AtlasClsuterAutomation.zip).
+Download and extract the [AtlasClusterAutomation.zip](https://github.com/wbleonard/pause-inactive-clusters/blob/main/export/AtlasClusterAutomation.zip?raw=true).
 
 ### Step 3: Log into Atlas
 To configure your app with realm-cli, you must log in to Atlas using your API keys:
-
-`realm-cli login --api-key="<Public API Key>" -private-api-key="<Private API Key>"`
 
 ```zsh
 ✗ realm-cli login --api-key="<Public API Key>" --private-api-key="<Private API Key>"
@@ -83,7 +87,7 @@ Successfully logged in
 ### Step 4: Get the Realm Application ID
 Select the `App Setting` menu and copy your Application ID:
 
-![Application ID](images/application-id.png "Application ID")
+![Application ID](https://raw.githubusercontent.com/wbleonard/pause-inactive-clusters/main/images/application-id.png "Application ID")
 
 ### Step 5: Import the Application
 Run the following `realm-cli push` command from the directory where you extracted the export:
@@ -104,8 +108,42 @@ Successfully pushed app up:
 ```
 After the import, replace the `AtlasPublicKey' with your API public key value.
 
-![Public Key Value](images/value-public-key.png "Public Key Value")
+![Public Key Value](https://raw.githubusercontent.com/wbleonard/pause-inactive-clusters/main/images/value-public-key.png "Public Key Value")
 
+
+### Review the Imported Application
+The imported application includes 5 [Functions](https://docs.mongodb.com/realm/functions/):
+
+![Functions](https://raw.githubusercontent.com/wbleonard/pause-inactive-clusters/main/images/functions.png "Functions")
+
+And the [Trigger](https://docs.mongodb.com/realm/triggers/scheduled-triggers/) which calls the **pauseInactiveClusters** function:
+
+![Triggers](https://raw.githubusercontent.com/wbleonard/pause-inactive-clusters/main/images/triggers.png "Triggers")
+
+The trigger is schedule to fire every 30 minutes. Note, the **pauseClusters** function that the trigger calls currently only logs cluster activity. This is so you can monitor and verify that the fuction behaves as you desire. When ready, uncomment the line that calls the **pauseCluster** function:
+
+```Javascript
+   if (!is_active) {
+              console.log(`Pausing ${project.name}:${cluster.name} because it has been inactive for more then ${minutesInactive} minutes`);  
+              //await context.functions.execute("pauseCluster", project.id, cluster.name, pause);
+```
+
+In addition, the **pauseClusters** function can be configured to exclude projects (such as those dedicated to production workloads):
+
+```javascrsipt
+  /*
+   * These project names are just an example. 
+   * The same concept could be used to exclude clusters or even 
+   * configure different inactivity intervals by project or cluster.
+   * These configuration options could also be stored and read from 
+   * and Atlas database.
+   */
+  excludeProjects = ['PROD1', 'PROD2'];   
+```
+
+Now that you have reviewed the draft, as a final step go ahead and deploy the Realm application. 
+
+![Review Draft & Deploy](https://raw.githubusercontent.com/wbleonard/pause-inactive-clusters/main/images/review-draft.png "Review Draft & Deploy")
 ## Build it Yourself Option
 To understand what's included in the application, here are the steps to build it yourself from scratch. 
 
@@ -113,23 +151,23 @@ To understand what's included in the application, here are the steps to build it
 
 The functions we need to create will call the [Atlas APIs](https://docs.atlas.mongodb.com/api/), so we need to store our API Public and Private Keys, which we will do using [Values & Secrets](https://docs.mongodb.com/realm/values-and-secrets/). The sample code I provide references these values as `AtlasPublicKey` and `AtlasPrivateKey`, so use those same names unless you want to change the code where they’re referenced.
 
-You'll find `Values` unnder the Build menu:
+You'll find `Values` under the Build menu:
 
-![Values](images/values-menu.png "Values")
+![Values](https://raw.githubusercontent.com/wbleonard/pause-inactive-clusters/main/images/values-menu.png "Values")
 
 First, create a Value for your public key (note, the key is in quotes): 
 
-![Public Key Value](images/value-public-key.png "Public Key Value")
+![Public Key Value](https://raw.githubusercontent.com/wbleonard/pause-inactive-clusters/main/images/value-public-key.png "Public Key Value")
 
 Create a Secret containing your private key (the secret is not in quotes): 
 
-![Secret Value](images/value-secret.png "Secret Value")
+![Secret Value](https://raw.githubusercontent.com/wbleonard/pause-inactive-clusters/main/images/value-secret.png "Secret Value")
 
 The Secret cannot be accessed directly, so create a second Value that links to the secret:  
 
-![Private Key Value](images/value-private-key.png "Private Key Value")
+![Private Key Value](https://raw.githubusercontent.com/wbleonard/pause-inactive-clusters/main/images/value-private-key.png "Private Key Value")
 
-![Review Draft & Deploy](images/review-draft.png "Review Draft & Deploy")
+![Review Draft & Deploy](https://raw.githubusercontent.com/wbleonard/pause-inactive-clusters/main/images/review-draft.png "Review Draft & Deploy")
 
 
 ### Step 2: Create the Functions
@@ -142,7 +180,7 @@ This standalone function can be test run from the Realm console to see the list 
 ```Javascript
 /*
  * Returns an array of the projects in the organization
- * See https://docs.atlas.mongodb.com/reference/api/clusters-modify-one/
+ * See https://docs.atlas.mongodb.com/reference/api/project-get-all/
  *
  * Returns an array of objects, e.g.
  *
@@ -371,10 +409,9 @@ exports = async function(projectID, clusterName, pause) {
 
 ### pauseInactiveClusters
 
-This fuction will be called by a trigger. As it's not possible 
-to pass a parameter to a scheduled trigger, it uses a hard-coded lookback window of 60 minutes that you can change to meet your needs. You could even store the value in an Atlas database and build a UI to manage it’s setting :-).
+This function will be called by a trigger. As it's not possible to pass a parameter to a scheduled trigger, it uses a hard-coded lookback window of 60 minutes that you can change to meet your needs. You could even store the value in an Atlas database and build a UI to manage its setting :-).
 
-The function will evaluate all projects and clusters in the organization where it’s hosted. Understanding that there are likely projects or clusters that you never want paused, the function also includes an excludeProjects array, where you can specify name of the projects to exclude from evaluation.
+The function will evaluate all projects and clusters in the organization where it’s hosted. Understanding that there are likely projects or clusters that you never want paused, the function also includes an excludeProjects array, where you can specify a list of project names to exclude from evaluation.
 
 Finally, you’ll notice the call to pauseCluster is commented out. I suggest you run this function for a couple of days and review the Trigger logs to verify it behaves as you’d expect.
 
@@ -418,7 +455,7 @@ exports = async function() {
             
             if (!is_active) {
               console.log(`Pausing ${project.name}:${cluster.name} because it has been inactive for more then ${minutesInactive} minutes`);  
-              //await context.functions.execute("pauseCluster", project.id, cluster.name, pause);
+              //await context.functions.execute("pauseCluster", project.id, cluster.name, true);
             } else {
               console.log(`Skipping pause for ${project.name}:${cluster.name} because it has active database users in the last ${minutesInactive} minutes.`);
             }
@@ -432,20 +469,20 @@ exports = async function() {
 };
 ```
 
-### Step 3: Create the Schedule Trigger
+### Step 3: Create the Scheduled Trigger
 
 Yes, we’re still using a [scheduled trigger](https://docs.mongodb.com/realm/triggers/scheduled-triggers/), but this time the trigger will run periodically to check for cluster inactivity. Now, your developers working late into the night will no longer have the cluster paused underneath them. 
 
-![trigger](images/trigger.png "image_tooltip")
+![trigger](https://raw.githubusercontent.com/wbleonard/pause-inactive-clusters/main/images/trigger.png "image_tooltip")
 
 ### Step 4: Deploy
 
 As a final step you need to deploy the Realm application. 
 
-![Review Draft & Deploy](images/review-draft.png "Review Draft & Deploy")
+![Review Draft & Deploy](https://raw.githubusercontent.com/wbleonard/pause-inactive-clusters/main/images/review-draft.png "Review Draft & Deploy")
 
 
 
 ## Summary
 
-The genesis for this article was a customer, when presented my previous article on scheduling cluster pauses, asked if the same could be achieved based on inactivity. It’s my belief that with the Atlas APIs, anything could be achieved. The only question was what constitutes inactivity? Given the heartbeat and replication that naturally occurs, there’s always some “activity” on the cluster. Ultimately, I settled on database access as the guide. Overtime, that metriic may be combined with some additional metrics or changed to something else all together, but the bones of the process are here.
+The genesis for this article was a customer, when presented my previous article on scheduling cluster pauses, asked if the same could be achieved based on inactivity. It’s my belief that with the Atlas APIs, anything could be achieved. The only question was what constitutes inactivity? Given the heartbeat and replication that naturally occurs, there’s always some “activity” on the cluster. Ultimately, I settled on database access as the guide. Over time, that metric may be combined with some additional metrics or changed to something else altogether, but the bones of the process are here.
